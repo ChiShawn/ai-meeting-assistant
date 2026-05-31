@@ -1,0 +1,41 @@
+# Portfolio-safe whitelist.
+# Ignore everything by default, then explicitly allow public source files.
+*
+
+!.gitignore
+!README.md
+!.env.example
+!services_lite.example.json
+!app.py
+!remote_gpu_server.py
+!requirements.txt
+!run_meeting_app.sh
+
+!frontend/
+frontend/*
+!frontend/index.html
+!frontend/script.js
+!frontend/style.css
+!frontend/proxy.php
+
+# Always keep local runtime and generated files private.
+.env
+.env.*
+!.env.example
+services_lite.json
+*.log
+*.pid
+*.sock
+*.pyc
+__pycache__/
+*venv*/
+*.wav
+*.mp3
+*.m4a
+*.mp4
+*.docx
+*.xlsx
+*.db
+*.sqlite
+frontend/debug*.php
+frontend/proxy_debug.log
