@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+httpx
+pydantic
+torch
+faster-whisper
+tiktoken
+transformers
+zhpr==0.1.0  # 確保版本匹配
+python-docx
