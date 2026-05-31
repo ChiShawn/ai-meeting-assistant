@@ -1,0 +1,25 @@
+{
+  "services": [
+    {
+      "name": "Qwen3-4B-Instruct",
+      "aliases": ["qwen", "qwen3"],
+      "remote_port": 8610,
+      "protocol": "http",
+      "metadata": {
+        "model_id": "Qwen3-4B-Instruct-med"
+      }
+    },
+    {
+      "name": "Whisper-ASR",
+      "aliases": ["whisper", "asr"],
+      "remote_port": 18080,
+      "protocol": "http"
+    },
+    {
+      "name": "RAG-Orchestrator",
+      "aliases": ["rag-orch"],
+      "remote_port": 8620,
+      "protocol": "http"
+    }
+  ]
+}
