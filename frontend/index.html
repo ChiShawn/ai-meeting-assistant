@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>AI 會議記錄助手</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f7f6;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 30px;
+    }
+
+    .input-panel {
+      border-bottom: 1px solid #eee;
+      padding-bottom: 25px;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #34495e;
+    }
+
+    input[type=file],
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+
+    button {
+      width: 100%;
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    #status-bar {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: bold;
+      background: #ecf0f1;
+      transition: 0.3s;
+    }
+
+    .result-container {
+      display: none;
+      margin-top: 25px;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: #f8f9fa;
+      padding: 10px 15px;
+      border-bottom: 1px solid #e1e4e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .card-body {
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .btn-copy {
+      background: white;
+      border: 1px solid #ddd;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    #docx-download-area {
+      display: none;
+      text-align: center;
+      padding: 16px;
+      background: #eaf4ea;
+      border: 1px solid #b2d8b2;
+      border-radius: 8px;
+    }
+
+    #docx-download-link {
+      display: inline-block;
+      background: #27ae60;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    #docx-download-link:hover {
+      background: #219a52;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="input-panel">
+      <h1>🎙️ AI 會議記錄助手</h1>
+      <form id="f">
+        <label>1. 上傳錄音檔</label>
+        <input type="file" name="file" required>
+
+        <label>2. 輸出選項</label>
+        <div style="margin-bottom:15px;">
+          <label style="display:inline; margin-right:15px;"><input type="checkbox" id="opt_ts" checked> 顯示時間戳記</label>
+          <label style="display:inline; margin-right:15px;"><input type="checkbox" id="opt_sum" checked> 自動產生摘要</label>
+          <label style="display:inline;"><input type="checkbox" id="opt_todo" checked> 自動提取待辦</label>
+        </div>
+
+        <label>3. 新增錯字修正</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:8px; margin-bottom:8px;">
+          <input type="text" id="wrong_word" placeholder="錯字，例如：替溫" style="padding:10px; border:1px solid #ddd; border-radius:6px;">
+          <input type="text" id="correct_word" placeholder="正確字，例如：體溫" style="padding:10px; border:1px solid #ddd; border-radius:6px;">
+          <button type="button" id="save_correction" style="width:auto; padding:10px 16px;">儲存</button>
+        </div>
+        <div id="correction_status" style="font-size:12px; color:#666; margin-bottom:15px;">
+          儲存後會套用到之後的遠端 Whisper 轉寫。
+        </div>
+
+        <label>4. ASR 模型 / 後處理</label>
+        <div style="margin-bottom:15px;">
+          <select id="asr_model" name="asr_model"
+            style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background: white;">
+            <option value="remote" selected>遠端 Whisper + 自訂錯字修正</option>
+          </select>
+          <div style="font-size:12px; color:#666; margin-top:6px;">
+            目前此介面固定走遠端 GPU 後端；只套用下方使用者自行儲存的錯字修正。
+          </div>
+        </div>
+
+        <label>5. Word 格式模板（選填）</label>
+        <input type="file" id="template_file" accept=".docx">
+        <div style="font-size:12px; color:#666; margin-bottom:15px;">
+          可選擇上傳 .docx 範本，系統會依文件可填位置放入整理內容；<br>
+          模板中亦可使用佔位符：<code>{{摘要}}</code>、<code>{{待辦}}</code>（或英文 <code>{{summary}}</code>、<code>{{todo}}</code>）直接替換。<br>
+          不上傳模板則維持原本網頁卡片顯示。
+        </div>
+
+        <button type="submit" id="submit-btn">開始分析</button>
+      </form>
+      <div style="border-top:1px solid #eee; padding-top:18px; margin-top:18px;">
+        <label>測試上傳連線（不轉寫）</label>
+        <div style="font-size:12px; color:#666; margin-bottom:10px;">
+          選擇音檔後傳送至伺服器，確認大檔能完整抵達，不執行 ASR。適合院內網路大檔傳輸測試。
+        </div>
+        <input type="file" id="probe_file" accept="audio/*,video/*">
+        <button type="button" id="probe-btn" style="background:#6c757d; margin-top:8px;">測試上傳連線（不轉寫）</button>
+        <div id="probe-status" style="margin-top:8px; font-size:13px; min-height:1.4em;"></div>
+      </div>
+    </div>
+    <div id="status-bar">準備就緒</div>
+    <div style="margin-top:10px; color:#555; font-size:14px; display:none;">使用統計: <span id="usage-stats">載入中...</span>
+    </div>
+    <div id="results" class="result-container">
+      <div class="card" id="card-transcript">
+        <div class="card-header"><span class="card-title">📝 逐字稿內容</span><button class="btn-copy"
+            onclick="copyText('res-transcript', this)">複製</button></div>
+        <div class="card-body" id="res-transcript"></div>
+      </div>
+      <div class="card" id="card-summary" style="display:none;">
+        <div class="card-header"><span class="card-title">💡 會議摘要</span><button class="btn-copy"
+            onclick="copyText('res-summary', this)">複製</button></div>
+        <div class="card-body" id="res-summary"></div>
+      </div>
+      <div class="card" id="card-todo" style="display:none;">
+        <div class="card-header"><span class="card-title">✅ 待辦事項</span><button class="btn-copy"
+            onclick="copyText('res-todo', this)">複製</button></div>
+        <div class="card-body" id="res-todo"></div>
+      </div>
+      <div id="docx-download-area">
+        <div style="margin-bottom:8px; font-weight:600; color:#27ae60;">📄 Word 報告已產生</div>
+        <a id="docx-download-link" href="#" download="meeting_report.docx">下載 Word 報告</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Use proxy.php to pass through the Docker context to the python backend
+    const PROXY_BASE = "proxy.php?path=";
+    const MAX_AUDIO_UPLOAD_BYTES = 1 * 1024 * 1024 * 1024;
+
+    function copyText(eid, btn) {
+      const text = document.getElementById(eid).innerText;
+      const org = btn.innerText;
+      function onSuccess() { btn.innerText = "已複製";  setTimeout(() => btn.innerText = org, 2000); }
+      function onFail()    { btn.innerText = "複製失敗"; setTimeout(() => btn.innerText = org, 2000); }
+      function execFallback() {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy') ? onSuccess() : onFail(); } catch (_) { onFail(); }
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(execFallback);
+      } else {
+        execFallback();
+      }
+    }
+
+    function humanFileSize(bytes) {
+      if (!Number.isFinite(bytes)) return "";
+      const units = ["B", "KB", "MB", "GB"];
+      let size = bytes, unit = 0;
+      while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit++; }
+      return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+    }
+
+    function friendlyFetchError(err, context) {
+      if (err instanceof TypeError) {
+        return (
+          `${context}失敗：可能是網路中斷、檔案上傳未完成，或瀏覽器與伺服器中途斷線。` +
+          `請改用穩定網路，或將音檔壓縮、切短（建議 8 GB 以內）後再試。`
+        );
+      }
+      const msg = err && err.message ? err.message : String(err);
+      return `${context}失敗：${msg}`;
+    }
+
+    async function fetchJsonOrThrow(url, options, context = "請求") {
+      let r;
+      try {
+        r = await fetch(url, options);
+      } catch (err) {
+        throw friendlyFetchError(err, context);
+      }
+      const text = await r.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (_) {
+        throw `伺服器回傳非 JSON (${r.status}): ${text.slice(0, 300)}`;
+      }
+      if (!r.ok) {
+        throw data.detail || data.error || `HTTP ${r.status}`;
+      }
+      return data;
+    }
+
+    async function uploadAudioForTranscription(audioFile, modelSize, statusEl) {
+      statusEl.textContent = '>> 正在上傳錄音檔...';
+      const fd = new FormData();
+      fd.set("file", audioFile, audioFile.name || "upload.audio");
+      fd.set("model_size", modelSize);
+      return await fetchJsonOrThrow(PROXY_BASE + '/transcribe_async', { method: 'POST', body: fd }, '上傳錄音檔');
+    }
+
+    function getSummaryTextForWord() {
+      const el = document.getElementById('res-summary');
+      if (el) {
+        const t = el.textContent.trim();
+        if (t) return t;
+      }
+      return summaryText;
+    }
+
+    document.getElementById('f').onsubmit = async e => {
+      e.preventDefault();
+      const sb = document.getElementById('status-bar');
+      const resultsDiv = document.getElementById('results');
+      const btn = document.getElementById('submit-btn');
+      const dlArea = document.getElementById('docx-download-area');
+      const dlLink = document.getElementById('docx-download-link');
+
+      const audioFile = e.target.elements.file.files[0];
+      if (!audioFile) {
+        alert("請先選擇錄音檔。");
+        return;
+      }
+      if (audioFile.size > MAX_AUDIO_UPLOAD_BYTES) {
+        const proceed = confirm(
+          `錄音檔大小為 ${humanFileSize(audioFile.size)}，超過建議上限 ${humanFileSize(MAX_AUDIO_UPLOAD_BYTES)}，` +
+          `上傳時間較長且容易因網路或伺服器限制而中斷。\n\n建議先壓縮或切成較短音檔。仍要繼續上傳嗎？`
+        );
+        if (!proceed) return;
+      }
+
+      sb.style.display = 'block';
+      sb.textContent = '>> 正在處理...';
+      sb.style.background = '#333';
+      sb.style.color = '#fff';
+      resultsDiv.style.display = 'grid';
+      document.getElementById('res-transcript').textContent = '處理中...';
+      document.getElementById('res-summary').textContent = '';
+      document.getElementById('res-todo').textContent = '';
+      document.getElementById('card-summary').style.display = 'none';
+      document.getElementById('card-todo').style.display = 'none';
+      dlArea.style.display = 'none';
+      if (dlLink._prevUrl) { URL.revokeObjectURL(dlLink._prevUrl); dlLink._prevUrl = null; }
+      btn.disabled = true;
+
+      const modelSize = document.getElementById('asr_model').value;
+      const useTs = document.getElementById('opt_ts').checked;
+      const doSum = document.getElementById('opt_sum').checked;
+      const doTodo = document.getElementById('opt_todo').checked;
+
+      try {
+        const d1 = await uploadAudioForTranscription(audioFile, modelSize, sb);
+
+        let finalData = null;
+        while (true) {
+          await new Promise(r => setTimeout(r, 1000));
+          const d2 = await fetchJsonOrThrow(PROXY_BASE + '/task/' + d1.task_id, undefined, '查詢轉寫進度');
+          let statusText = d2.status;
+          if (d2.status == 3 || d2.status == 'done') statusText = '完成';
+          if (d2.status === 'error') throw d2.error || "轉寫失敗";
+          sb.textContent = `>> 狀態: ${statusText} (${d2.progress}%)`;
+          if (d2.status === 'done' || d2.progress === 100) { finalData = d2; break; }
+        }
+
+        if (!finalData || !finalData.result) throw "無內容";
+
+        let transcript = useTs
+          ? finalData.result.segments.map(s => `[${s.start} - ${s.end}] ${s.text}`).join('\n')
+          : finalData.result.text;
+
+        document.getElementById('res-transcript').textContent = transcript;
+        sb.textContent = '>> 正在分析...';
+
+        let summaryText = '';
+        let todoText = '';
+
+        const rawText = finalData.result.text;
+        if (doSum) {
+          document.getElementById('card-summary').style.display = 'block';
+          document.getElementById('res-summary').textContent = '正在產生摘要...';
+          sb.textContent = '>> 正在產生摘要...';
+          try {
+            const d = await fetchJsonOrThrow(PROXY_BASE + '/summarize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text_to_summarize: rawText })
+            }, '產生摘要');
+            summaryText = d.summary_text || d.error || '摘要產生失敗';
+            document.getElementById('res-summary').textContent = summaryText;
+          } catch (ex) {
+            const msg = typeof ex === 'string' ? ex : (ex instanceof Error ? ex.message : String(ex));
+            document.getElementById('res-summary').textContent = `摘要產生失敗：${msg}`;
+          }
+        }
+        if (doTodo) {
+          document.getElementById('card-todo').style.display = 'block';
+          document.getElementById('res-todo').textContent = '正在提取待辦...';
+          sb.textContent = '>> 正在提取待辦...';
+          try {
+            const d = await fetchJsonOrThrow(PROXY_BASE + '/todo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text_to_analyze: rawText })
+            }, '提取待辦');
+            todoText = d.todo_list || d.error || '待辦產生失敗';
+            document.getElementById('res-todo').textContent = todoText;
+          } catch (ex) {
+            const msg = typeof ex === 'string' ? ex : (ex instanceof Error ? ex.message : String(ex));
+            document.getElementById('res-todo').textContent = `待辦提取失敗：${msg}`;
+          }
+        }
+
+        // Word 模板處理（選填）
+        const templateInput = document.getElementById('template_file');
+        const templateFile = templateInput.files[0];
+        if (templateFile) {
+          // Step A: generate formal minutes items for Word (non-blocking failure)
+          let minutesItemsJson = '';
+          sb.textContent = '>> 正在產生會議紀錄條列...';
+          try {
+            const miData = await fetchJsonOrThrow(PROXY_BASE + '/minutes_items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text_to_analyze: rawText,
+                summary_text: getSummaryTextForWord()
+              })
+            }, '產生會議紀錄條列');
+            if (miData && Array.isArray(miData.items) && miData.items.length > 0) {
+              const allItems = miData.items;
+              const itemsForWord = allItems.filter(it => it.section && it.section.trim() && it.content && it.content.trim());
+              const itemsForWeb  = allItems.filter(it => !it.section || !it.section.trim());
+              if (itemsForWord.length > 0) {
+                minutesItemsJson = JSON.stringify(itemsForWord);
+                console.log('[minutes_items] for Word:', itemsForWord.length, '/ web-only:', itemsForWeb.length);
+              } else {
+                console.warn('[minutes_items] no sectioned items — none sent to Word');
+              }
+              if (itemsForWeb.length > 0) {
+                const unclassifiedText = '【未分類紀錄條列（僅供參考，未傳入 Word）】\n' +
+                  itemsForWeb.map(it => (it.title ? '【' + it.title + '】' : '') + it.content).join('\n');
+                const summaryEl = document.getElementById('res-summary');
+                if (summaryEl) {
+                  summaryEl.textContent = (summaryEl.textContent ? summaryEl.textContent + '\n\n' : '') + unclassifiedText;
+                  summaryText = summaryEl.textContent.trim();
+                  document.getElementById('card-summary').style.display = 'block';
+                }
+              }
+            } else {
+              const miWarn = (miData && miData.error) ? miData.error : '無條列結果';
+              console.warn('[minutes_items]', miWarn, '— 改用摘要產生 Word');
+            }
+          } catch (miErr) {
+            const miMsg = typeof miErr === 'string' ? miErr : (miErr instanceof Error ? miErr.message : String(miErr));
+            console.warn('[minutes_items] 失敗，改用摘要:', miMsg);
+          }
+          // Step B: generate Word report (minutes items if available, else summary fallback)
+          sb.textContent = '>> 正在產生 Word 報告...';
+          const summaryForWord = getSummaryTextForWord();
+          console.log('[generate_report_docx] summary_text length:', summaryForWord.length,
+            'todo_text length:', todoText.length, 'minutes_items_json length:', minutesItemsJson.length);
+          const rfd = new FormData();
+          rfd.append('template_file', templateFile);
+          rfd.append('summary_text', summaryForWord);
+          rfd.append('todo_text', todoText);
+          rfd.append('source_text', rawText);
+          rfd.append('minutes_items_json', minutesItemsJson);
+          rfd.append('prefer_minutes_items', '1');
+          let resp;
+          try {
+            resp = await fetch(PROXY_BASE + '/generate_report_docx', { method: 'POST', body: rfd });
+          } catch (err) {
+            throw friendlyFetchError(err, '產生 Word 報告');
+          }
+          if (!resp.ok) {
+            const errText = await resp.text();
+            throw `Word 報告產生失敗: ${errText.slice(0, 300)}`;
+          }
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          dlLink._prevUrl = url;
+          dlLink.href = url;
+          dlArea.style.display = 'block';
+        }
+
+        sb.textContent = '>> 全部完成！';
+        sb.style.background = '#28a745';
+      } catch (ex) {
+        console.error(ex);
+        let errMsg;
+        if (typeof ex === 'string') {
+          errMsg = ex;
+        } else if (ex instanceof TypeError) {
+          errMsg = '可能是網路中斷、檔案上傳未完成，或瀏覽器與伺服器中途斷線。請改用穩定網路，或將音檔壓縮、切短後再試。';
+        } else if (ex instanceof Error) {
+          errMsg = ex.message || '未知錯誤';
+        } else {
+          errMsg = String(ex);
+        }
+        sb.textContent = `錯誤：${errMsg}`;
+        sb.style.background = '#dc3545';
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    document.getElementById('probe-btn').onclick = async () => {
+      const fileInput = document.getElementById('probe_file');
+      const statusEl  = document.getElementById('probe-status');
+      const btn       = document.getElementById('probe-btn');
+      const file = fileInput.files[0];
+      if (!file) {
+        statusEl.style.color = '#dc3545';
+        statusEl.textContent = '請先選擇要測試的音檔。';
+        return;
+      }
+      btn.disabled = true;
+      statusEl.style.color = '#555';
+      statusEl.textContent = `正在上傳 ${humanFileSize(file.size)}，請稍候...`;
+      const fd = new FormData();
+      fd.set('file', file, file.name || 'probe.audio');
+      try {
+        const data = await fetchJsonOrThrow(
+          PROXY_BASE + '/upload_probe',
+          { method: 'POST', body: fd, cache: 'no-store' },
+          '上傳測試'
+        );
+        if (data.ok) {
+          statusEl.style.color = '#28a745';
+          statusEl.textContent =
+            `成功：${data.filename}，`+
+            `PHP size=${humanFileSize(data.size)}，`+
+            `Content-Length=${humanFileSize(data.content_length)}，`+
+            `暫存可讀: ${data.tmp_readable ? '是' : '否'}`;
+        } else {
+          statusEl.style.color = '#dc3545';
+          statusEl.textContent = `失敗：${data.upload_error || data.error || '未知錯誤'}`;
+        }
+      } catch (ex) {
+        const msg = typeof ex === 'string' ? ex : (ex instanceof Error ? ex.message : String(ex));
+        statusEl.style.color = '#dc3545';
+        statusEl.textContent = `測試失敗：${msg}`;
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    document.getElementById('save_correction').onclick = async () => {
+      const wrong = document.getElementById('wrong_word').value.trim();
+      const correct = document.getElementById('correct_word').value.trim();
+      const status = document.getElementById('correction_status');
+      if (!wrong || !correct) {
+        status.textContent = '請同時填寫錯字與正確字。';
+        status.style.color = '#dc3545';
+        return;
+      }
+      try {
+        const data = await fetchJsonOrThrow(PROXY_BASE + '/corrections/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wrong_word: wrong, correct_word: correct })
+        });
+        status.textContent = `已儲存：${data.wrong_word} → ${data.correct_word}`;
+        status.style.color = '#28a745';
+        document.getElementById('wrong_word').value = '';
+        document.getElementById('correct_word').value = '';
+      } catch (ex) {
+        const msg = typeof ex === 'string' ? ex : (ex instanceof Error ? ex.message : String(ex));
+        status.textContent = `儲存失敗：${msg}`;
+        status.style.color = '#dc3545';
+      }
+    };
+  </script>
+</body>
+
+</html>
