@@ -1,0 +1,45 @@
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #222;
+  --muted: #666;
+  --primary: #4f46e5;
+  --primary-weak: #e0e7ff;
+  --border: #e5e7eb;
+  --success: #16a34a;
+  --warn: #d97706;
+}
+
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; color: var(--text); background: var(--bg); }
+
+header { padding: 20px 24px; }
+h1 { margin:0; font-weight:800; letter-spacing: .5px; }
+h2 { margin:0 0 8px 0; font-size: 18px; font-weight:700; }
+
+section.controls, section.progress { background: var(--card); border:1px solid var(--border); border-radius: 12px; padding: 16px; margin: 0 24px 16px; }
+.row { display:flex; align-items:center; gap:12px; flex-wrap: wrap; }
+.hint { color: var(--muted); font-size: 12px; }
+
+label { color: var(--muted); }
+input[type=file] { padding: 6px 8px; background:#fff; border:1px solid var(--border); border-radius: 8px; }
+select { padding: 6px 10px; border:1px solid var(--border); border-radius: 8px; background:#fff; }
+
+button { padding: 8px 14px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; }
+button.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
+button.secondary { background: var(--primary-weak); color: var(--primary); }
+button.ghost { background: #fff; color: var(--primary); border-color: var(--primary); }
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+.progress .bar { flex:1; height: 14px; background:#eef2ff; border-radius: 8px; overflow:hidden; }
+.progress .fill { height: 100%; background: var(--primary); width: 0%; transition: width .25s ease; }
+.progress .pct { width: 60px; text-align:right; }
+.status { margin-top: 8px; color: var(--muted); }
+
+main.grid, section.grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px 16px; }
+.panel { background: var(--card); border:1px solid var(--border); border-radius: 12px; padding: 16px; display:flex; flex-direction:column; gap:8px; }
+.panel-actions { display:flex; gap:10px; flex-wrap:wrap; }
+
+textarea { width: 100%; min-height: 240px; resize: vertical; padding:12px; border:1px solid var(--border); border-radius: 10px; background:#fff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; line-height:1.45; }
+
+footer { padding: 0 24px 24px; color:var(--muted); }
